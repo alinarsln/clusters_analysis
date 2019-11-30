@@ -1,0 +1,840 @@
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <string>
+#include <time.h>
+#include <cmath>
+#include <utility>
+
+using namespace std;
+#define PI 3.14159265
+#define  e 1
+
+
+class Point {
+
+
+public:
+    double x, y;
+
+    Point(double x, double y) {
+        this->x = x;
+        this->y = y;
+
+    };
+
+    double show_x() {
+        return x;
+    }
+
+    double show_y() {
+        return y;
+    }
+
+    friend bool operator==(const Point &p, const Point &k) {
+        return ((p.x == k.x) && (p.y == k.y));
+    }
+};
+
+class Group {
+public:
+    vector<Point> points;
+
+    void add(Point p) {
+        points.push_back(p);
+    }
+
+    void erase() {
+        points.clear();
+
+
+    }
+
+
+    void make_group(double xsr, double ysr, double dispx, double dispy, int count) {
+
+
+        erase();
+        int _dispx = dispx * 2, _dispy = dispy * 2;
+
+        double sx, sy, rand1, rand2;
+        srand(time(NULL));
+        double fraction = 1.0 / (static_cast<double>(RAND_MAX) + 1.0);
+
+        for (int i = 0; i < count; i++) {
+            sx = 0;
+            sy = 0;
+            for (int j = 0; j < 1000; j++) {
+                rand1 = (double) (rand()) * fraction * (2 * dispx + 1) + xsr - dispx;
+                rand2 = (double) (rand()) * fraction * (2 * dispy + 1) + ysr - dispy;
+                sx = sx + rand1;
+                sy = sy + rand2;
+
+                //sx += -1+(rand() %10000)*0.0002;
+                // sy +=-1+ (rand() %10000)*0.0002;
+
+            }
+
+            sx = sx / 1000;
+            sy = sy / 1000;
+            Point p(sx, sy);
+            //Point p(xsr + dispx * sx, ysr + dispy * sy);
+            add(p);
+        }
+
+
+    }
+
+
+};
+
+class Cluster {
+public:
+
+    vector<Point> points;
+
+    void add(Point p) {
+        points.push_back(p);
+    }
+};
+
+
+class Field {
+public:
+    vector<Group> groups;
+
+    void add(Group g) {
+        groups.push_back(g);
+        add_points(g);
+
+    }
+
+    vector<Point> all_points;
+
+    void add_points(Group g) {
+        for (int i = 0; i < g.points.size(); i++)
+            all_points.push_back(g.points[i]);
+
+    }
+
+    void erase(Group g) {
+        groups.clear();
+    }
+
+    vector<Cluster> clusters;
+
+    void add_cluster(Cluster g) {
+        clusters.push_back(g);
+
+    }
+
+
+};
+
+class My_Search {
+public:
+
+    Field f;
+    Field new_f;
+    int points_nmb;
+    vector<vector<double>> a;
+    double **b;
+    double dt;
+
+    int k;
+    vector<Cluster> clusters_by_k;
+
+
+    double dist(Point q, Point p) {
+        double distx, disty;
+        distx = q.show_x() - p.show_x();
+        disty = q.show_y() - p.show_y();
+        return sqrt(distx * distx + disty * disty);
+    }
+
+    void distance_matrix() {
+
+
+        for (int i = 0; i < points_nmb; i++) {
+            vector<double> dist_for_point;
+            for (int j = 0; j < points_nmb; j++) {
+                dist_for_point.push_back(dist(f.all_points[i], f.all_points[j]));
+            }
+            a.push_back(dist_for_point);
+
+        }
+    }
+
+    void binary_matrix() {
+        distance_matrix();
+        b = new double *[points_nmb];
+        for (int i = 0; i < points_nmb; i++)
+            b[i] = new double[points_nmb];
+        for (int i = 0; i < points_nmb; i++)
+            for (int j = i; j < points_nmb; j++) {
+                if (a[i][j] <= dt) {
+                    b[i][j] = 1;
+                    b[j][i] = 1;
+                } else {
+                    b[i][j] = 0;
+                    b[j][i] = 0;
+                }
+
+            }
+
+
+    }
+
+    void print_matrix() {
+
+        ofstream gnu("distance_matrix.txt");
+        for (int i = 0; i < points_nmb; i++) {
+            for (int j = 0; j < points_nmb; j++) {
+                gnu << a[i][j] << " ";
+
+            }
+            gnu << endl;
+        }
+
+    }
+
+
+    void wave() {
+        int *c = new int[points_nmb];
+        binary_matrix();
+        for (int i = 0; i < points_nmb; i++)
+            c[i] = 0;
+        int newpoints_nmb = 0, s = 0, tmp;
+        c[0] = 1;
+        newpoints_nmb++;
+
+        bool sled = false;
+
+        while (s < points_nmb) {//poka vse tochki ne budut v kakoi-nibud gruppe.
+            for (int i = 0; i < points_nmb; i++) //idem po vsem tochkam
+            {
+                if (c[i] == 1) {
+                    for (int j = 0; j < points_nmb; j++) {
+                        if ((b[i][j] == 1) && (c[j] == 0)) {
+                            c[j] = 1;
+                            newpoints_nmb++;
+                        }
+                    }
+                }
+            }
+
+            s = s + newpoints_nmb;
+            Cluster cluster;
+            for (int i = 0; i < points_nmb; i++)
+                if (c[i] > 0) {
+                    cluster.points.push_back(f.all_points[i]);
+                    c[i] = -1;//pomechaem dobavlennuyu
+                }//dobavili v gruppu vezde gde >0 i pometili dobavlennae -1
+            new_f.clusters.push_back(cluster);
+            newpoints_nmb = 0;
+
+            if (s < points_nmb) {
+                for (int i = 0; i < points_nmb; i++) {
+                    if (c[i] == 0) {//ishem pervuyu ne dobavlennuyu
+                        tmp = i;
+                        break;
+                    }
+
+                }
+                c[tmp] = 1;
+                newpoints_nmb++;// sozdali novuyu gruppu
+            }
+
+        }
+    }
+
+    void print_new() {
+
+        int a, b, c;
+        ofstream gnu("new_clasters.txt");
+        for (int i = 0; i < new_f.clusters.size(); i++) {
+            a = rand() % 257;
+            b = rand() % 257;
+            c = rand() % 257;
+            Cluster g = new_f.clusters[i];
+            for (int j = 0; j < g.points.size(); j++) {
+                gnu << g.points[j].show_x() << " " << g.points[j].show_y() << " " << a << " " << b << " " << c << endl;
+            }
+        }
+
+    }
+
+    vector<Point> centres;
+    vector<Point> old_centres;
+    vector<Point> new_centres;
+
+    void make_first_centers() {
+
+        int p;
+        int min_index;
+        double min_dist;
+        for (int i = 0; i < k; i++) {
+
+            centres.push_back(f.all_points[i]);
+
+        }
+        for (int i = 0; i < points_nmb; i++) {
+            Point a(0, 0);
+            old_centres.push_back(a);
+            new_centres.push_back(a);
+        }
+
+        cout << "the first centres";
+        //for(int i=0;i<k;i++)
+        //  cout<<centres[i].show_x()<<" "<<centres[i].show_y()<<endl;
+
+    }
+
+    void iteration() {
+        int min_index;
+        double min_dist;
+        for (int i = 0; i < points_nmb; i++) {
+            min_dist = dist(f.all_points[i], centres[0]);
+            min_index = 0;
+            for (int j = 0; j < k; j++) {
+                if (dist(f.all_points[i], centres[j]) < min_dist) {
+                    min_dist = dist(f.all_points[i], centres[j]);
+                    min_index = j;
+                }
+
+            }
+            old_centres[i].x = new_centres[i].x;
+            old_centres[i].y = new_centres[i].y;
+            new_centres[i].x = centres[min_index].x;
+            new_centres[i].y = centres[min_index].y;
+        }
+        double sx = 0, sy = 0;
+        int count = 0;
+        for (int i = 0; i < k; i++) {
+            sx = 0;
+            sy = 0;
+            count = 0;
+            // cout<<i<<" "<<centres[i].show_x()<<" "<<centres[i].show_y()<<endl;
+            for (int j = 0; j < points_nmb; j++) {
+                if (new_centres[j] == centres[i]) {
+                    count++;
+                    sx = sx + f.all_points[j].x;
+                    sy = sy + f.all_points[j].y;
+                }
+            }
+            if (count != 0) centres[i].x = sx / count;
+
+            if (count != 0) centres[i].y = sy / count;
+
+            // cout<<i<<" "<<centres[i].show_x()<<" "<<centres[i].show_y()<<endl;
+        }
+
+    }
+
+    void k_mean() {
+        int right = 0;
+        make_first_centers();
+        while (right != points_nmb) {
+            right = 0;
+            iteration();
+            for (int i = 0; i < points_nmb; i++) {
+                if (old_centres[i] == new_centres[i]) right++;
+                else break;
+            }
+
+        }
+
+        for (int i = 0; i < k; i++) {
+            Cluster cluster;
+            for (int j = 0; j < points_nmb; j++) {
+                if (new_centres[j] == centres[i]) {
+                    cluster.points.push_back(f.all_points[j]);
+                }
+            }
+            new_f.clusters.push_back(cluster);
+        }
+    }
+
+    void spanning_tree() {
+        distance_matrix();
+
+        ofstream fout("graph.txt");
+        ofstream forgist("edge_lengths");
+
+        vector<bool> used(points_nmb, false);
+        vector<double> min_e(points_nmb, a[0][1]);
+        vector<double> sel_e(points_nmb, -1);
+        for (int i = 0; i < points_nmb; i++) {
+            int v = -1;
+            for (int j = 0; j < points_nmb; j++)
+                if ((!used[j]) && (v == -1 || (v != -1 && min_e[j] <= min_e[v])))
+                    v = j;
+
+            used[v] = true;
+            if (sel_e[v] != -1) {
+                fout << f.all_points[v].show_x() << " " << f.all_points[v].show_y() << endl;
+                fout << f.all_points[sel_e[v]].show_x() << " " << f.all_points[sel_e[v]].show_y() << endl;
+                fout << endl;
+                forgist << dist(f.all_points[v], f.all_points[sel_e[v]]) << endl;
+
+            }
+            for (int to = 0; to < points_nmb; ++to)
+                if (a[v][to] < min_e[to]) {
+                    min_e[to] = a[v][to];
+                    sel_e[to] = v;
+                }
+        }
+        fout.close();
+        forgist.close();
+        cout << "done!";
+
+    }
+
+
+    void hierarchical(int k_last) {
+        double min_dist, x, y;
+        int point_a, point_b;
+        vector<Point> all_points2;
+        distance_matrix();
+        for (int i = 0; i < points_nmb; i++)
+            all_points2.push_back(f.all_points[i]);
+        while (a.size() != k_last) {
+            min_dist = a[0][1];
+            point_a = 0;
+            point_b = 1;
+            for (int i = 0; i < a.size(); i++) {
+                for (int j = i; j < a.size(); j++)
+                    if (a[i][j] < min_dist && a[i][j] != 0) {
+                        min_dist = a[i][j];
+                        point_a = i;
+                        point_b = j;
+                    }
+            }
+            x = (f.all_points[point_a].show_x() + f.all_points[point_b].show_x()) / 2;
+            y = (f.all_points[point_a].show_y() + f.all_points[point_b].show_y()) / 2;
+            a.erase(a.begin() + point_a);
+            a.erase(a.begin() + point_b - 1);
+            all_points2.erase(all_points2.begin() + point_a);
+            all_points2.erase(all_points2.begin() + point_b - 1);
+
+            Point new_point(x, y);
+
+            for (int i = 0; i < a.size(); i++) {
+                a[i].erase(a[i].begin() + point_a);
+                a[i].erase(a[i].begin() + point_b - 1);
+            }
+            all_points2.push_back(new_point);
+            vector<double> new_dist;
+            for (int i = 0; i < a.size(); i++) {
+                new_dist.push_back(dist(new_point, all_points2[i]));
+            }
+            a.push_back(new_dist);
+            for (int i = 0; i < a.size(); i++) {
+                a[i].push_back(dist(new_point, all_points2[i]));
+            }
+            // new_dist.push_back(dist(new_point,new_point));
+        }
+        vector<int> c(points_nmb) ;
+        for (int i = 0; i < points_nmb; i++)
+            c[i] = 0;
+        for (int i = 0; i < points_nmb; i++) {
+            min_dist = dist(all_points2[0], f.all_points[i]);
+            for (int j = 0; j < k_last; j++) {
+                if (dist(all_points2[j], f.all_points[i]) < min_dist) {
+                    c[i] = j;
+                }
+            }
+        }
+        for (int j = 0; j < k_last; j++) {
+            Cluster g;
+            for (int i = 0; i < points_nmb; i++) {
+                if (c[i] == j) {
+                    g.points.push_back(f.all_points[i]);
+                }
+            }
+            new_f.clusters.push_back(g);
+        }
+        cout << "done!";
+
+    }
+};
+
+
+class Functional {
+public:
+
+
+    Field f;
+    My_Search search;
+
+    void gnunorm(double xsr, double ysr, double dispx, double dispy, int count) {
+        Group group;
+        group.make_group(xsr, ysr, dispx, dispy, count);
+        f.add(group);
+        cout << "group is made id=" << f.groups.size() - 1 << endl;
+    }
+
+    void gnurnd(int min, int max, int count) {
+
+        Group group;
+        for (int i = 0; i < count; i++) {
+            Point p((double) (rand()) / RAND_MAX * (max - min) + min, (double) (rand()) / RAND_MAX * (max - min) + min);
+            group.add(p);
+        }
+        f.add(group);
+        cout << "group is made! id:" << f.groups.size() - 1 << endl;
+
+    }
+
+
+    void turn(int id, double alpha) {
+        Group g = f.groups[id];
+        Group k;
+        double tmpx, tmpy;
+        for (int i = 0; i < g.points.size(); i++) {
+            tmpx = g.points[i].x * cos(PI * alpha / 180) - sin(PI * alpha / 180) * g.points[i].y;
+            tmpy = g.points[i].x * sin(PI * alpha / 180) + cos(PI * alpha / 180) * g.points[i].y;
+            k.points.push_back(Point(tmpx, tmpy));
+
+        }
+        f.add(k);
+        cout << "group is made! id:" << f.groups.size() - 1 << endl;
+    }
+
+    void move(int id, double distx, double disty) {
+        Group g = f.groups[id];
+        Group k;
+        double tmpx, tmpy;
+        for (int i = 0; i < g.points.size(); i++) {
+            tmpx = g.points[i].x + distx;
+            tmpy = g.points[i].y + disty;
+            k.points.push_back(Point(tmpx, tmpy));
+
+        }
+        f.add(k);
+        cout << "group is made! id:" << f.groups.size() - 1 << endl;
+
+    }
+
+    void stretch(int id, double x_stretch, double y_stretch) {
+        Group g = f.groups[id];
+        double tmpx, tmpy;
+        for (int i = 0; i < g.points.size(); i++) {
+            tmpx = g.points[i].x * x_stretch;
+            tmpy = g.points[i].y * y_stretch;
+            g.points[i].x = tmpx;
+            g.points[i].y = tmpy;
+        }
+
+    }
+
+    void print_group(int id) {
+        Group g = f.groups[id];
+        ofstream gnu("gnuxy.txt");
+        for (int i = 0; i < g.points.size(); i++) {
+            gnu << g.points[i].show_x() << " " << g.points[i].show_y() << endl;
+
+        }
+        cout << "done!" << endl;
+
+    }
+
+    void print_all() {
+
+        int a, b, c;
+        ofstream gnu("gnuall.txt");
+
+
+        if (!gnu.is_open()) {
+            cout << "Errors in opening" << endl;
+        } else {
+            int t = 0;
+            for (int i = 0; i < f.groups.size(); i++) {
+
+                a = rand() % 257;
+                b = rand() % 257;
+                c = rand() % 257;
+                Group g = f.groups[i];
+                for (int j = 0; j < g.points.size(); j++) {
+
+                    gnu << g.points[j].show_x() << " " << g.points[j].show_y() << " " << a << " " << b << " " << c
+                        << " " << endl;
+                }
+
+
+            }
+            cout << "done!" << endl;
+            gnu.close();
+        }
+    }
+
+
+    void load_groups() {
+
+        ifstream fin("gnuall.txt");
+        double x, y;
+        int a, b, c, a1, b1, c1;
+        if (!fin.is_open())
+            cout << "Error in opening the file  ";
+        while (fin >> x && fin >> y && fin >> a && fin >> b && fin >> c) {
+
+            Group g;
+            a1 = a;
+            b1 = b;
+            c1 = c;
+            while (fin >> x >> y >> a1 >> b1 >> c1) {
+
+                if (a1 == a && b1 == b && c1 == c) {
+                    Point p(x, y);
+                    g.points.push_back(p);
+                };
+
+
+            }
+            f.groups.push_back(g);
+
+        }
+        fin.close();
+
+
+        cout << "done!" << endl;
+
+    }
+
+    void load_clusters() {
+
+        ifstream fin("new_clusters.txt");
+        double x, y;
+        int a, b, c, a1, b1, c1;
+        if (!fin.is_open())
+            cout << "Error in opening the file  ";
+        while (fin >> x && fin >> y && fin >> a && fin >> b && fin >> c) {
+
+            Cluster g;
+            a1 = a;
+            b1 = b;
+            c1 = c;
+            while (fin >> x >> y >> a1 >> b1 >> c1) {
+
+                if (a1 == a && b1 == b && c1 == c) {
+                    Point p(x, y);
+                    g.points.push_back(p);
+                };
+
+
+            }
+            f.clusters.push_back(g);
+
+        }
+        fin.close();
+
+
+        cout << "done!" << endl;
+
+    }
+
+    /*template < typename T >
+    void load_everything(string file_name,int type)//1-cluster, 0-group
+    {
+        vector<T> points_list;//list of clusters or groups
+        ifstream fin(file_name);
+        double x, y;
+        int a, b, c, a1, b1, c1;
+        if (!fin.is_open())
+            cout << "Error in opening the file  ";
+        while (fin >> x && fin >> y && fin >> a && fin >> b && fin >> c) {
+
+            T g;//cluster or group
+            a1 = a;
+            b1 = b;
+            c1 = c;
+            while (fin >> x >> y >> a1 >> b1 >> c1) {
+
+                if (a1 == a && b1 == b && c1 == c) {
+                    Point p(x, y);
+                    g.points.push_back(p);
+                };
+
+
+            }
+            points_list.push_back(g);
+
+        }
+        if (typeof(T)==Group)
+            f.clusters.swap(points_list);
+        else
+            f.groups=points_list;
+        fin.close();
+
+
+    }*/
+
+    void gnux(int id) {
+        Group group = f.groups[id];
+        ofstream gnu("gnux.txt");
+        for (int i = 0; i < f.groups[id].points.size(); i++) {
+            gnu << group.points[i].show_x() << endl;
+        }
+        cout << "done!" << endl;
+    }
+
+    void make_wave(double porog) {
+        search.f = f;
+        search.points_nmb = f.all_points.size();
+        search.dt = porog;
+        cout << "print matrix..." << endl;
+        search.print_matrix();
+        cout << "waving..." << endl;
+        search.wave();
+        cout << "printing clusters..." << endl;
+        search.print_new();
+
+    }
+
+    void tree() {
+
+        search.f = f;
+        search.points_nmb = f.all_points.size();
+        search.spanning_tree();
+    }
+
+
+    void make_k(int k) {
+        search.f = f;
+        search.points_nmb = f.all_points.size();
+        search.k = k;
+        search.k_mean();
+        search.print_new();
+    }
+
+    void hierarchical(int k) {
+        search.f = f;
+        search.points_nmb = f.all_points.size();
+        search.hierarchical(k);
+        search.print_new();
+    }
+
+
+};
+
+
+class My_Interface {
+
+    string a, b;
+    Functional plane;
+    double min, max, xsr, ysr, dispx, dispy;
+    int count;
+    int id;
+    double porog;
+    double x, y;
+public:
+    void command() {
+        cin >> a;
+        ifstream help("help.txt");
+        while (a != "exit") {
+            if (a == "gnurnd") {
+                cout << "Enter min and max: ";
+                cin >> min >> max;
+                cout << "Enter the number to generate: ";
+                cin >> count;
+                plane.gnurnd(min, max, count);
+            } else if (a == "gnux") {
+                cout << "Enter the number of the group: ";
+                cin >> id;
+                plane.gnux(id);
+            } else if (a == "gnunorm") {
+                cout << "Vvedite xsr ysr dispx dispy count: ";
+                cin >> xsr >> ysr >> dispx >> dispy >> count;
+                plane.gnunorm(xsr, ysr, dispx, dispy, count);
+            } else if (a == "print_group") {
+                cout << "Enter id  ";
+                cin >> id;
+                plane.print_group(id);
+            } else if (a == "print_all") {
+                plane.print_all();
+            } else if (a == "help") {
+                while (!help.eof()) {
+                    getline(help, b);
+                    cout << b << endl;
+                }
+            } else if (a == "turn") {
+                double alpha;
+                cout << "Enter the number of the group to turn: ";
+                cin >> id;
+                cout << "Enter the angle in degrees: ";
+                cin >> alpha;
+                plane.turn(id, alpha);
+            } else if (a == "make_kmean") {
+                int k;
+                cout << "Enter the number of the cluster to find: ";
+                cin >> k;
+                plane.make_k(k);
+                cout << "done!" << endl;
+            } else if (a == "make_wave") {
+                cout << "Enter threshold value (Vvedite znachenie poroga):";
+                cin >> porog;
+                plane.make_wave(porog);
+                cout << "wave is made" << endl;
+
+            } else if (a == "move") {
+                cout << "Enter the number of the group to move: ";
+                cin >> id;
+
+                cout << "Enter the offset value for x:";
+                cin >> x;
+                cout << "Enter the offset value for y:";
+                cin >> y;
+                plane.move(id, x, y);
+
+                cout << "moved" << endl;
+
+            } else if (a == "stretch") {
+                cout << "Enter the number of the group to stretch: ";
+                cin >> id;
+
+                cout << "Enter the tensile value for x:";
+                cin >> x;
+                cout << "Enter the tensile value for y:";
+                cin >> y;
+                plane.stretch(id, x, y);
+
+                cout << "stretched " << endl;
+            } else if (a == "load") {
+                plane.load_groups();
+            } else if (a == "load_cluster") {
+                plane.load_clusters();
+
+            } else if (a == "tree") {
+                plane.tree();
+            } else if (a == "hierarchical") {
+                cout << "Enter the number of the cluster to find: ";
+                int k;
+                cin >> k;
+                plane.hierarchical(k);
+            } else
+                cout << a << ": command not found" << endl;
+
+
+            cout << "write a command:";
+            cin >> a;
+        }
+
+    }
+
+
+};
+
+
+int main() {
+
+    srand(time(NULL));
+
+
+    Functional plane;
+    cout << "write a command:";
+    My_Interface anInterface;
+    anInterface.command();
+
+
+    return 0;
+}
