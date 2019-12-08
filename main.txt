@@ -11,30 +11,7 @@ using namespace std;
 #define  e 1
 
 
-class Point {
 
-
-public:
-    double x, y;
-
-    Point(double x, double y) {
-        this->x = x;
-        this->y = y;
-
-    };
-
-    double show_x() {
-        return x;
-    }
-
-    double show_y() {
-        return y;
-    }
-
-    friend bool operator==(const Point &p, const Point &k) {
-        return ((p.x == k.x) && (p.y == k.y));
-    }
-};
 
 class Group {
 public:
