@@ -13,6 +13,7 @@ public:
     Point operator= (Point b);
     bool operator!=(Point b);
     Point(double x, double y);
+    double dist(Point b);
 };
 
 #endif //UNTITLED1_POINT_H

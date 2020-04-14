@@ -4,7 +4,15 @@
 #include <string>
 #include <vector>
 #include "Field.h"
-#include "My_search.h"
+
+#include "Cluster.h"
+#include "Wave.h"
+#include "Dbscan.h"
+#include "EM.h"
+#include "Forel.h"
+#include "Hierarchical.h"
+#include "Kmean.h"
+#include "Spanning_tree.h"
 
 #ifndef UNTITLED1_FUNCTIONAL_H
 #define UNTITLED1_FUNCTIONAL_H
@@ -16,8 +24,15 @@ public:
 
 
     Field f;
-    My_Search search;
+    Dbscan dbscan_search;
+    EM em_search;
+    Forel forel_search;
+    Hierarchical hierarchical_search;
+    Kmean kmean_search;
+    Spanning_tree span_tree_search;
+    Wave wave_search;
 
+    vector<vector<Cluster>> searches;
     void gnunorm(double xsr, double ysr, double dispx, double dispy, int count);
 
     void gnurnd(int min, int max, int count);
@@ -40,6 +55,11 @@ public:
     void forel(double r);
 
     void dbscan(int min_point, double r);
+
+    void em(int cl);
+
+
+
 
 
 };

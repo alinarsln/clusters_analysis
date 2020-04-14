@@ -13,6 +13,8 @@ public:
     vector<Point> points;
 
     void add(Point p);
+    vector<double> find_vectors();//function that finds
+    Point find_mass_centre();
 };
 
 
